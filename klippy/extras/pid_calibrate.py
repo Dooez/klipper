@@ -49,7 +49,7 @@ class PIDCalibrate:
         heater.set_control(old_control)
         if write_file:
             calibrate.write_file("/tmp/heattest.txt")
-            calibrate.save_plots("/tmp/heattest.png")
+            # calibrate.save_plots("/tmp/heattest.png")
         if calibrate.check_busy(0.0, 0.0, 0.0):
             raise gcmd.error("pid_calibrate interrupted")
         # Log and report results
