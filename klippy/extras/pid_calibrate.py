@@ -8,6 +8,7 @@ import math
 
 import numpy as np
 import scipy as sp
+from numpy.matlib import float64
 
 from . import heaters
 from .heaters import ControlHeater, Heater
@@ -94,6 +95,10 @@ class ControlZiNi(ControlHeater):
         self.time_samples: list[float] = []
         self.temp_samples: list[float] = []
 
+        self.history_pwm_samples: list[list[float]] = []
+        self.history_time_samples: list[list[float]] = []
+        self.history_spec: list[np.typing.NDArray[float64]] = []
+
         self.iteration_count: int = 0
 
         self.found_Kp: bool = False
@@ -122,6 +127,11 @@ class ControlZiNi(ControlHeater):
         self.time_samples.append(read_time)
         self.heater.set_pwm(read_time, value)
 
+    def reset_iteration(self):
+        self.pwm_samples = []
+        self.time_samples = []
+        self.temp_samples = []
+
     def temperature_update(self, read_time: float, temp: float, target_temp: float):
         if self.found_Kp:
             return
@@ -129,6 +139,7 @@ class ControlZiNi(ControlHeater):
         if not self.iteration:
             self.heater.alter_target(self.calibrate_temp)
             if temp >= target_temp - self.limits.temp_delta:
+                self.reset_iteration()
                 self.iteration = True
             else:
                 self.heater.set_pwm(read_time, 99999999999)
@@ -140,9 +151,10 @@ class ControlZiNi(ControlHeater):
 
     # Analysis
     def check_Ku(self):
-        totalTime = self.time_samples[-1] - self.time_samples[0]
-        avgTd = totalTime / len(self.time_samples)
-        xp = np.array(self.time_samples)
+        time_samples = [t - self.time_samples[1] for t in self.time_samples]
+        totalTime = time_samples[-1]
+        avgTd = totalTime / len(time_samples)
+        xp = np.array(time_samples)
         fp = np.array(self.pwm_samples)
         x = np.linspace(0, avgTd * (len(xp) - 1))
         f = np.interp(x, xp, fp)
@@ -150,7 +162,11 @@ class ControlZiNi(ControlHeater):
         spec = spec[: len(spec) // 2]
         freqStep = 1 / totalTime
         nCutoff = math.ceil(self.limits.Ku_cutoff_freq / freqStep)
-        spec[1:nCutoff] = 0
+        spec[0:nCutoff] = 0
+
+        self.history_pwm_samples.append(self.pwm_samples)
+        self.history_time_samples.append(time_samples)
+        self.history_pwm_samples.append(spec)
 
         pwr_spec = np.square(spec)
         idx = np.argmax(pwr_spec)
