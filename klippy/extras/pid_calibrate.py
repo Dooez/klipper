@@ -147,7 +147,7 @@ class ControlZiNi(ControlHeater):
                 self.reset_iteration()
                 self.iteration = True
             else:
-                self.heater.set_pwm(read_time, 99999999999)
+                self.set_pwm(read_time, self.heater_max_power)
 
         self.iterate(read_time, temp, target_temp)
 
