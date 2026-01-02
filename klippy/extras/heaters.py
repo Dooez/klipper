@@ -49,7 +49,7 @@ class Heater:
         # Setup control algorithm sub-class
         algos = {'watermark': ControlBangBang, 'pid': ControlPID}
         algo = config.getchoice('control', algos)
-        self.control = algo(self, config)
+        self.control:ControlHeater = algo(self, config)
         # Setup output heater pin
         heater_pin = config.get('heater_pin')
         ppins = self.printer.lookup_object('pins')
@@ -156,12 +156,18 @@ class Heater:
         pheaters = self.printer.lookup_object('heaters')
         pheaters.set_temperature(self, temp)
 
+class ControlHeater:
+    def tempareture_update(self, read_time: float, temp: float, target_temp: float):
+        pass
+
+    def check_busy(self, eventtime: float, smoothed_temp: float, target_temp: float) -> bool:
+        return False
 
 ######################################################################
 # Bang-bang control algo
 ######################################################################
 
-class ControlBangBang:
+class ControlBangBang(ControlHeater):
     def __init__(self, heater, config):
         self.heater = heater
         self.heater_max_power = heater.get_max_power()
@@ -187,7 +193,7 @@ class ControlBangBang:
 PID_SETTLE_DELTA = 1.
 PID_SETTLE_SLOPE = .1
 
-class ControlPID:
+class ControlPID(ControlHeater):
     def __init__(self, heater, config):
         self.heater = heater
         self.heater_max_power = heater.get_max_power()
