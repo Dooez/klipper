@@ -6,9 +6,13 @@
 import logging
 import math
 
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
 from numpy.matlib import float64
+
+matplotlib.use("Agg")  # Required for headless environments like Klipper
 
 from . import heaters
 from .heaters import ControlHeater, Heater
@@ -45,6 +49,7 @@ class PIDCalibrate:
         heater.set_control(old_control)
         if write_file:
             calibrate.write_file("/tmp/heattest.txt")
+            calibrate.save_plots("/tmp/heattest.png")
         if calibrate.check_busy(0.0, 0.0, 0.0):
             raise gcmd.error("pid_calibrate interrupted")
         # Log and report results
@@ -230,6 +235,61 @@ class ControlZiNi(ControlHeater):
         f = open(filename, "w")
         f.write("\n".join(pwm + out))
         f.close()
+
+    def save_plots(self, filename_prefix="/tmp/pid_plot"):
+        if not self.history_time_samples:
+            logging.info("No data available to plot.")
+            return
+
+        # Setup figure with two subplots
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
+        fig.tight_layout(pad=5.0)
+
+        # --- Plot 1: Time Domain (PWM and Temperature) ---
+        t = np.array(self.time_samples)
+
+        temp = np.array(self.temp_samples)
+        pwm = np.array(self.pwm_samples)
+
+        ax1.set_title("Time Domain: Temperature and PWM")
+        ax1.set_xlabel("Time (s)")
+
+        # Temperature on left Y axis
+        ax1.plot(t, temp, color="tab:red", label="Temperature (°C)")
+        ax1.set_ylabel("Temperature (°C)", color="tab:red")
+
+        # PWM on right Y axis (twinx)
+        ax1_pwm = ax1.twinx()
+        ax1_pwm.step(t, pwm, color="tab:blue", alpha=0.3, label="PWM Output")
+        ax1_pwm.set_ylabel("PWM Power", color="tab:blue")
+        ax1_pwm.set_ylim(-0.05, self.heater_max_power + 0.05)
+
+        # --- Plot 2: Frequency Domain (Spectrum) ---
+        # Retrieve the FFT results stored in check_Ku
+        spec = np.abs(self.history_spec[-1])
+        freqs = np.linspace(
+            0, (len(spec) - 1) / self.history_time_samples[-1][-1], len(spec)
+        )
+
+        ax2.set_title("Frequency Domain: Power Spectrum")
+        ax2.set_xlabel("Frequency (Hz)")
+        ax2.set_ylabel("Magnitude")
+        ax2.plot(freqs, spec, color="purple")
+
+        # Highlight the peak used for Tu calculation
+        peak_idx = np.argmax(spec)
+        ax2.annotate(
+            f"Ultimate Frequency: {freqs[peak_idx]:.3f} Hz",
+            xy=(freqs[peak_idx], spec[peak_idx]),
+            xytext=(freqs[peak_idx], spec[peak_idx] * 1.1),
+            arrowprops=dict(facecolor="black", shrink=0.05),
+        )
+
+        # Save to file
+        plot_path = f"{filename_prefix}"
+        fig.savefig(plot_path)
+        plt.close(fig)
+        logging.info(f"PID plots saved to {plot_path}")
 
 
 TUNE_PID_DELTA = 5.0
