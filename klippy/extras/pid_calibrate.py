@@ -74,7 +74,8 @@ class ControlZiNi(ControlHeater):
         temp_delta: float = 2.0  # deg C
         start_kp: float = 25.0
         max_kp: float = 100.0
-        iteration_duration: float = 10  # sec
+        # iteration_duration: float = 10  # sec
+        iteration_duration: float = 3  # sec
         Ku_cutoff_freq: float = 2 / iteration_duration  # Hz
         oscillation_peak_ratio: float = 100
         max_iteration_count: int = 100
@@ -87,10 +88,11 @@ class ControlZiNi(ControlHeater):
         # Heating control
         self.iteration: bool = False
         self.limits: ControlZiNi.Limits = self.Limits()
-        self.limits.max_kp = self.heater_max_power / self.limits.temp_delta
+        # self.limits.max_kp = self.heater_max_power / self.limits.temp_delta
+        self.limits.max_kp = 45
 
         # Ultimate gain search
-        self.current_Kp: float = self.limits.max_kp
+        self.current_Kp: float = self.limits.start_kp
         self.peak_oscillation_ratio: float = 0
         self.peak_oscillation_period: float = 0
         self.found_peak: bool = False
@@ -118,18 +120,17 @@ class ControlZiNi(ControlHeater):
             self.check_Ku()
             return
 
-        self.time_samples.append(read_time)
-        self.temp_samples.append(temp)
-
         temp_err = target_temp - temp
         pwr = self.current_Kp * temp_err
         bounded_pwr = max(0.0, min(self.heater_max_power, pwr))
+
+        self.temp_samples.append(temp)
+        self.pwm_samples.append(bounded_pwr)
+        self.time_samples.append(read_time)
         self.set_pwm(read_time, bounded_pwr)
 
     # Heater control
     def set_pwm(self, read_time, value):
-        self.pwm_samples.append(value)
-        self.time_samples.append(read_time)
         self.heater.set_pwm(read_time, value)
 
     def reset_iteration(self):
