@@ -157,7 +157,7 @@ class Heater:
         pheaters.set_temperature(self, temp)
 
 class ControlHeater:
-    def tempareture_update(self, read_time: float, temp: float, target_temp: float):
+    def temperature_update(self, read_time: float, temp: float, target_temp: float):
         pass
 
     def check_busy(self, eventtime: float, smoothed_temp: float, target_temp: float) -> bool:

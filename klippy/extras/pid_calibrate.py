@@ -69,6 +69,7 @@ class PIDCalibrate:
         configfile.set(cfgname, "pid_Kd", "%.3f" % (Kd,))
 
 
+PID_PARAM_BASE = 255.
 class ControlZiNi(ControlHeater):
     class Limits:
         temp_delta: float = 2.0  # deg C
@@ -131,7 +132,7 @@ class ControlZiNi(ControlHeater):
 
     # Heater control
     def set_pwm(self, read_time, value):
-        self.heater.set_pwm(read_time, value)
+        self.heater.set_pwm(read_time, value / PID_PARAM_BASE)
 
     def reset_iteration(self):
         self.pwm_samples = []
@@ -205,23 +206,27 @@ class ControlZiNi(ControlHeater):
         self.rollback_count -= 1
 
     def calc_final_pid(self):
-        Ku = self.current_Kp
-        Tu = self.peak_oscillation_period
-        Ti = 0.5 * Tu
-        Kp = 0.6 * Ku
-        Td = 0.125 * Tu
-        Ki = Kp / Ti
-        Kd = Kp * Td
-        logging.info(
-            "Autotune: Ku=%f Tu=%f  Kp=%f Ki=%f Kd=%f",
-            self.heater_max_power,
-            Ku,
-            Tu,
-            Kp,
-            Ki,
-            Kd,
-        )
-        return Kp, Ki, Kd
+        try:
+            Ku = self.current_Kp
+            Tu = self.peak_oscillation_period
+            Ti = 0.5 * Tu
+            Kp = 0.6 * Ku
+            Td = 0.125 * Tu
+            Ki = Kp / Ti
+            Kd = Kp * Td
+            logging.info(
+                "Autotune: Ku=%f Tu=%f  Kp=%f Ki=%f Kd=%f",
+                self.heater_max_power,
+                Ku,
+                Tu,
+                Kp,
+                Ki,
+                Kd,
+            )
+            return 25, 5, 50
+            # return Kp, Ki, Kd
+        except:
+            return 25, 5, 50
 
     # Offline analysis helper
     def write_file(self, filename):
